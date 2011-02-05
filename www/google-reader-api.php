@@ -6,9 +6,11 @@
 class GoogleReaderAPI{
 	private $service;
 	private $auth;
-	private $source = '314ple-GoogleReaderAPIClass-0.1';
-	private $accountType = 'HOSTED_OR_GOOGLE';
+	private $source = 'GoogleReaderAPIClass-0.1';
+	private $client = 'scroll';
+	private $account_type = 'HOSTED_OR_GOOGLE';
 	private $clientlogin_url = 'https://www.google.com/accounts/ClientLogin';
+	private $reader_api_url = 'http://www.google.com/reader/api/0/';
 	private $session_var_auth_name = 'google_auth';
 	
 	function __construct( $email, $password, $service = 'reader' ){
@@ -67,6 +69,10 @@ class GoogleReaderAPI{
 			$headers[] = 'Content-type: application/x-www-form-urlencoded';
 			$headers[] = 'Authorization: GoogleLogin auth='.$this -> auth;
 			
+			if ( strpos( $url, 'http://') === false && strpos( $url, 'https://' ) === false ){
+				$url = $this -> reader_api_url.$url;
+			}
+			
 			$response = $this -> request( $url, $type, $headers, $fields);
 			if ( $response['code'] == 200 ){
 				if ( isset( $fields['output'] ) ){
@@ -90,20 +96,47 @@ class GoogleReaderAPI{
 		}
 	}
 	
-	public function get_subscription_list(){
-		return $this -> request2google('https://www.google.com/reader/api/0/subscription/list', "get", false, array(
-				'output' => 'json',
+	public function get_tag_list( $output = 'json' ){
+		return $this -> request2google('tag/list', "get", false, array(
+				'output' => $output,
 				'ck' => time(),
-				'client' => 'scroll',
+				'client' => $this -> client,
 			));
-		//return $this -> request2google('http://www.google.com/reader/api/0/user-info');
-		//return $this -> request2google('https://www.google.com/reader/api/0/unread-count');
+	}
+	public function get_subscription_list( $output = 'json' ){
+		return $this -> request2google('subscription/list', "get", false, array(
+				'output' => $output,
+				'ck' => time(),
+				'client' => $this -> client,
+			));
+	}
+	public function get_preference_list( $output = 'json' ){
+		return $this -> request2google('preference/list', "get", false, array(
+				'output' => $output,
+				'ck' => time(),
+				'client' => $this -> client,
+			));
+	}
+	public function get_unread_count( $output = 'json' ){
+		return $this -> request2google('unread-count', "get", false, array(
+				'all' => true,
+				'output' => $output,
+				'ck' => time(),
+				'client' => $this -> client,
+			));
+	}
+	public function get_user_info( $output = 'json' ){
+		return $this -> request2google('user-info', "get", false, array(
+				'output' => $output,
+				'ck' => time(),
+				'client' => $this -> client,
+			));
 	}
 	
 	private function clientLogin( $email, $password ){
 		
 		$response = $this -> request( $this -> clientlogin_url, 'post', false, array(
-			"accountType" => $this -> accountType,
+			"accountType" => $this -> account_type,
 			"Email" => $email,
 			"Passwd" => $password,
 			"service" => $this -> service,
