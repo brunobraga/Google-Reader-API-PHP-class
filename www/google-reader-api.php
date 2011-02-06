@@ -17,19 +17,21 @@ class GoogleReaderAPI{
 		if (isset( $service ) ){
 			$this -> service = $service;
 		}
- 		if ( isset($_SESSION[ $this -> session_var_auth_name ] ) ){
+ 		/* if ( isset($_SESSION[ $this -> session_var_auth_name ] ) ){
 			$this -> auth = $_SESSION[ $this -> session_var_auth_name ];
-			//echo "Loading";
-		} else {
-			//echo "create new";
+			echo "Loading";
+		} else { */
+			echo "create new";
 			$this -> clientLogin( $email, $password );
-		}
+			$this -> get_token();
+		/* } */
 	}
+		
 	
 	private function request( $url, $type = 'get', $headers = false, $fields = false, $cookie = false){
 	
 		$curl = curl_init();
-		
+				
 		if ( $fields ){
 			if ($type == 'get'){
 				$url .= '?'.http_build_query( $fields );
@@ -58,13 +60,12 @@ class GoogleReaderAPI{
 		$response['info'] = curl_getinfo( $curl);
 		$response['code'] = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		$response['body'] = substr( $response['text'], $response['info']['header_size'] );
-		
-		//print_r( $response );
+		print_r( $response );
 		curl_close( $curl );
 		return $response;
 	}
 
-	private function request2google( $url, $type, $headers = false, $fields = false ){
+	private function request2google( $url, $type = 'get', $headers = false, $fields = false ){
 		if ( $this -> auth ){
 			$headers[] = 'Content-type: application/x-www-form-urlencoded';
 			$headers[] = 'Authorization: GoogleLogin auth='.$this -> auth;
@@ -73,15 +74,16 @@ class GoogleReaderAPI{
 				$url = $this -> reader_api_url.$url;
 			}
 			
-			$response = $this -> request( $url, $type, $headers, $fields);
+			$response = $this -> request( $url, $type, $headers, $fields);			
 			if ( $response['code'] == 200 ){
 				if ( isset( $fields['output'] ) ){
 					switch ($fields['output']){
-						case 'json':
-							return json_decode( $response['body'] );
-							break;
 						case 'xml':
 							return (new SimpleXMLElement( $response['body'] ) );
+							break;
+						case 'json':
+						default:
+							return json_decode( $response['body'] );
 							break;
 					}
 				} else {
@@ -132,6 +134,54 @@ class GoogleReaderAPI{
 				'client' => $this -> client,
 			));
 	}
+	private function get_token(){
+		$this -> token = $this -> request2google('token');
+	}
+	
+	//get contents functions
+	/*
+		r - order
+		r = n - new items
+		r = o - old items
+		r = a - auto sort
+	
+	*/
+	private function get_content( $conent_url = '', $number = 20, $order = 'n', $exclude_target = '', $start_time = '', $continuation = ''){
+		$fields = array(
+			'ck' => time(),
+			'client' => $this -> client,
+			'n' => $number,
+			'r' => $order,
+			'output' => 'json',
+		);
+		if ( !empty($exclude_target) ){$fields['xt'] = $exclude_target;}
+		if ( !empty($start_time) ){$fields['ot'] = $start_time;}
+		if ( !empty($continuation) ){$fields['c'] = $continuation;}
+		
+		return $this -> request2google('stream/contents/'.Utils::getInstance() -> urlencode( $conent_url ), 'get', false, $fields);
+	}
+	
+	public function get_content_feed( $feed_url = '', $number = 20, $order = 'n', $exclude_target = '', $start_time = '', $continuation = ''){
+		return $this -> get_content( $feed_url, $number, $order, $exclude_target, $start_time, $continuation );
+	}
+	public function get_content_by_label( $label = '', $number = 20, $order = 'n', $exclude_target = '', $start_time = '', $continuation = ''){
+		return $this -> get_content( (strpos($label, '/') === false?'user/-/label/':'').$label, $number, $order, $exclude_target, $start_time, $continuation );
+	}
+	public function get_content_by_state( $state = '', $number = 20, $order = 'n', $exclude_target = '', $start_time = '', $continuation = ''){
+		return $this -> get_content( (strpos($state, '/') === false?'user/-/state/com.google/':'').$state, $number, $order, $exclude_target, $start_time, $continuation );
+	}
+	
+	/*
+	Edit functions
+	*/
+	private function edit_do( $api_function , $post_fields ){
+		$post_fields['token'] = $this -> token;
+		return $this -> request2google( $api_function, "post", false, $post_fields );
+	}
+	
+	/* public function edit_subscription( 
+	s	return $this -> edit_do( 'subscription/edit', 
+	} */
 	
 	private function clientLogin( $email, $password ){
 		
@@ -166,4 +216,24 @@ class AutentificationException extends Exception{
 
 }
 
+class Utils{
+	protected static $instance;
+	
+	private function __construct(){}
+	private function __clone(){}
+	
+    public static function getInstance(){
+        return (self::$instance === null) ? 
+               self::$instance = new self() :
+               self::$instance;
+    }
+	
+	public static function urlencode( $url ){
+		$ar_url = explode( '/', $url );
+		foreach( $ar_url as $key => $val ){
+			$ar_url[ $key ] = urlencode( $val );
+		}
+		return implode('/', $ar_url );
+	}
+}
 ?>
