@@ -172,8 +172,11 @@ class GoogleReaderAPI{
 	public function get_content_by_state( $state = '', $number = 20, $order = 'n', $exclude_target = '', $start_time = '', $continuation = ''){
 		return $this -> get_content( (strpos($state, '/') === false?'user/-/state/com.google/':'').$state, $number, $order, $exclude_target, $start_time, $continuation );
 	}
-	
-	/*
+
+        public function get_unread( $number = 20, $order = 'n' ){
+            return $this ->get_content_by_state('reading-list', $number, $order, 'user/-/state/com.google/read');
+        }
+        /*
 	Edit functions
 	*/
 	private function edit_do( $api_function , $post_fields ){
