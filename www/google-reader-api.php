@@ -6,12 +6,14 @@
 class GoogleReaderAPI{
 	private $service;
 	private $auth;
+        private $token;
 	private $source = 'GoogleReaderAPIClass-0.1';
 	private $client = 'scroll';
 	private $account_type = 'HOSTED_OR_GOOGLE';
 	private $clientlogin_url = 'https://www.google.com/accounts/ClientLogin';
 	private $reader_api_url = 'http://www.google.com/reader/api/0/';
 	private $session_var_auth_name = 'google_auth';
+
 	
 	function __construct( $email, $password, $service = 'reader' ){
 		if (isset( $service ) ){
@@ -37,14 +39,14 @@ class GoogleReaderAPI{
 				$url .= '?'.http_build_query( $fields );
 			} else {
 				curl_setopt($curl, CURLOPT_POST, true);
-				curl_setopt($curl, CURLOPT_POSTFIELDS, $fields);
+				curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($fields) );
 			}
 		}
 		if ( $headers ){
 			curl_setopt($curl, CURLOPT_HEADER, true);
 			curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 		}
- 		if ($cookie){
+ 		if ( $cookie ){
 			curl_setopt($curl, CURLOPT_COOKIE, $cookie);
 		}
 		
@@ -60,7 +62,7 @@ class GoogleReaderAPI{
 		$response['info'] = curl_getinfo( $curl);
 		$response['code'] = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		$response['body'] = substr( $response['text'], $response['info']['header_size'] );
-		print_r( $response );
+		//print_r( $response );
 		curl_close( $curl );
 		return $response;
 	}
@@ -175,14 +177,26 @@ class GoogleReaderAPI{
 	Edit functions
 	*/
 	private function edit_do( $api_function , $post_fields ){
-		$post_fields['token'] = $this -> token;
-		return $this -> request2google( $api_function, "post", false, $post_fields );
+		$post_fields['T'] = $this -> token;
+		if ( $this -> request2google( $api_function, "post", false, $post_fields ) == "OK"){
+                    return true;
+                } else {
+                    return false;
+                }
 	}
 	
 	/* public function edit_subscription( 
 	s	return $this -> edit_do( 'subscription/edit', 
 	} */
-	
+	public function set_state( $itemId, $state = 'read'){
+            $post_fields = array(
+                "i" => $itemId,
+                "a" => 'user/-/state/com.google/'.$state,
+            );
+            //print_r( $post_fields );
+            return $this ->edit_do('edit-tag?client='.$this -> client, $post_fields);
+        }
+
 	private function clientLogin( $email, $password ){
 		
 		$response = $this -> request( $this -> clientlogin_url, 'post', false, array(
